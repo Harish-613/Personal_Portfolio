@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Harish Balamurugan: Northwestern CS & Math. Low-latency systems, developer tools and data pipelines.">
+<meta property="og:title" content="Harish Balamurugan">
+<meta property="og:description" content="Northwestern CS & Math. Apex, Stratum, LinkedIn++ and more.">
+<meta name="theme-color" content="#090e1a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23090e1a'/%3E%3Ctext x='32' y='42' font-family='Arial,sans-serif' font-weight='700' font-size='26' fill='%23e8edf7' text-anchor='middle'%3EHB%3C/text%3E%3Ccircle cx='51' cy='40' r='4' fill='%237c9cff'/%3E%3C/svg%3E">
+<title>Harish Balamurugan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: dark, cinematic single page. A full-screen order-book intro you can trade against, then each
+   project as a panel with a working demo beside it (order book, dependency graph, LinkedIn overlay),
+   a scroll-driven experience timeline, and a skill filter that lights up where each skill was used.
+   Deliberately single-theme (dark), so every color is set explicitly below. */
+:root {
+  color-scheme: dark;
+  --bg: #090e1a;
+  --bg-2: #0d1424;
+  --surface: #111a2c;
+  --surface-2: #16213a;
+  --line: #22304b;
+  --ink: #e8edf7;
+  --muted: #8e9ab2;
+  --accent: #7c9cff;
+  --accent-2: #c3a6ff;
+  --bid: #3ad6ac;
+  --ask: #ff7f77;
+  --bid-soft: rgba(58, 214, 172, .16);
+  --ask-soft: rgba(255, 127, 119, .15);
+  --glow: rgba(124, 156, 255, .10);
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --step-0: 1rem; --step-1: 1.2rem; --step-2: clamp(1.6rem, 3.2vw, 2.1rem); --step-3: clamp(2.2rem, 5vw, 3.4rem); --step-4: clamp(2.8rem, 8vw, 6rem);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 var(--step-0)/1.65 var(--font-body);
+  overflow-x: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--accent); text-decoration: none; background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat; transition: background-size .25s; }
+a:hover { background-size: 0 1px; background-position: 100% 100%; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; }
+.mono { font-family: var(--font-mono); }
+.tab { font-variant-numeric: tabular-nums; }
+
+/* cursor light */
+#spot { position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 30%), var(--glow), transparent 60%); }
+main, header, footer { position: relative; z-index: 1; }
+
+/* ---------- floating nav ---------- */
+.nav {
+  position: fixed; z-index: 20; left: 50%; transform: translateX(-50%);
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  display: flex; align-items: center; gap: 4px; padding: 6px;
+  background: rgba(17, 26, 44, .72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: 999px; max-width: calc(100vw - 24px); overflow-x: auto; scrollbar-width: none;
+}
+.nav a { background: none; color: var(--muted); font: 500 .85rem/1 var(--font-body); padding: 8px 14px; border-radius: 999px; white-space: nowrap; transition: color .2s, background-color .2s; }
+.nav a:hover { color: var(--ink); }
+.nav a.active { color: var(--ink); background: var(--surface-2); }
+.nav .me { color: var(--ink); font-weight: 600; }
+
+/* ---------- hero ---------- */
+.hero { position: relative; min-height: 92vh; display: grid; align-items: center; overflow: hidden; border-bottom: 1px solid var(--line); }
+#tape { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; transform-origin: 50% 60%; }
+.hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(9,14,26,.94) 0%, rgba(9,14,26,.72) 45%, rgba(9,14,26,.15) 100%), linear-gradient(0deg, var(--bg) 0%, transparent 28%); }
+.hero-inner { position: relative; z-index: 2; padding-block: 120px 96px; pointer-events: none; }
+.hero-inner a, .hero-inner button { pointer-events: auto; }
+.hello { font: 600 var(--step-2)/1.1 var(--font-display); color: var(--ink); margin: 0 0 6px; opacity: .92; }
+h1 { font: 800 var(--step-4)/.95 var(--font-display); letter-spacing: -.04em; margin: 0; text-wrap: balance; }
+h1 .dot { color: var(--accent); }
+.role { font: 400 var(--step-1)/1.5 var(--font-mono); color: var(--muted); margin: 22px 0 0; min-height: 1.6em; }
+.role b { color: var(--ink); font-weight: 500; }
+.caret { display: inline-block; width: .55em; height: 1.05em; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; font: 500 .92rem/1 var(--font-body); border: 1px solid var(--line); color: var(--ink); background: rgba(17,26,44,.8); transition: border-color .2s, transform .2s; }
+.btn:hover { border-color: var(--accent); transform: translateY(-1px); background-size: 0; }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.hint { position: absolute; z-index: 2; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 22px; font: 400 .78rem/1.4 var(--font-mono); color: var(--muted); background: rgba(17,26,44,.8); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; pointer-events: none; }
+.hint b { color: var(--ink); font-weight: 500; }
+.down { position: absolute; z-index: 2; left: 50%; bottom: 22px; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; color: var(--accent); background: rgba(17,26,44,.8); animation: bob 2.2s ease-in-out infinite; }
+.down:hover { background-size: 0; border-color: var(--accent); }
+@keyframes bob { 50% { transform: translate(-50%, 6px); } }
+
+/* ---------- sections ---------- */
+section { padding-block: 96px; }
+.label { display: flex; align-items: center; gap: 16px; font: 500 .8rem/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
+.label::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+h2 { font: 800 var(--step-3)/1.02 var(--font-display); letter-spacing: -.03em; margin: 0 0 18px; text-wrap: balance; }
+h2 .grad { background: linear-gradient(90deg, var(--accent-2), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lead { color: var(--muted); max-width: 62ch; font-size: 1.08rem; margin: 0; }
+
+/* reveal on scroll: content is visible at rest; below-the-fold blocks get a short lift when they enter */
+.reveal.armed { opacity: .001; transform: translateY(22px); }
+.reveal.in { opacity: 1; transform: none; transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+
+/* ---------- about ---------- */
+.about { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 56px; align-items: start; }
+.about p { margin: 0 0 16px; color: #c7cfdf; max-width: 60ch; }
+.about p b { color: var(--ink); font-weight: 600; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.fact .n { font: 700 2rem/1 var(--font-display); letter-spacing: -.02em; }
+.fact .n small { font-size: .95rem; color: var(--muted); font-weight: 500; margin-left: 2px; }
+.fact .t { color: var(--muted); font-size: .88rem; margin-top: 8px; line-height: 1.4; }
+.mail { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px 10px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.mail span.k { font: 500 .74rem/1 var(--font-mono); letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+.mail .addr { font: 500 .95rem/1.3 var(--font-mono); user-select: all; word-break: break-all; color: var(--ink); }
+.copy { border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 12px; font-size: .82rem; }
+.copy:hover { border-color: var(--accent); }
+
+/* ---------- projects ---------- */
+.projects { display: grid; gap: 34px; margin-top: 48px; }
+.panel { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; transition: opacity .3s, filter .3s, border-color .3s; }
+.panel-text { padding: 34px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.kind { font: 500 .76rem/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h3 { font: 800 var(--step-2)/1.05 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.panel-text p { margin: 0; color: #c7cfdf; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 400 .76rem/1 var(--font-mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; transition: color .2s, border-color .2s, background-color .2s; }
+.chip.hit { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.spec { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.spec div { padding: 12px 14px; border-left: 1px solid var(--line); }
+.spec div:first-child { border-left: 0; }
+.spec dt { font: 400 .7rem/1.3 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.spec dd { margin: 6px 0 0; font: 500 1.3rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.spec dd small { font-size: .7rem; color: var(--muted); font-weight: 400; }
+.repo { font: 500 .88rem/1 var(--font-mono); margin-top: auto; align-self: flex-start; }
+.demo { background: var(--bg-2); border-left: 1px solid var(--line); padding: 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.demo-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 500 .74rem/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.demo-head .live { color: var(--bid); display: inline-flex; align-items: center; gap: 6px; }
+.demo-head .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--bid); animation: pulse 1.6s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.ctl { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 8px 12px; font: 500 .82rem/1 var(--font-body); transition: border-color .15s, transform .1s; }
+.ctl:hover { border-color: var(--accent); }
+.ctl:active { transform: scale(.97); }
+.ctl.buy { color: var(--bid); } .ctl.sell { color: var(--ask); }
+.ctl.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.note { font: 400 .76rem/1.45 var(--font-mono); color: var(--muted); margin: 0; }
+
+/* order book demo */
+.ladder { font: 400 .82rem/1 var(--font-mono); font-variant-numeric: tabular-nums; display: grid; gap: 2px; }
+.lvl { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 5px 10px; border-radius: 4px; overflow: hidden; }
+.lvl .bar { position: absolute; top: 0; bottom: 0; right: 0; transition: width .25s; }
+.lvl.ask .bar { background: var(--ask-soft); } .lvl.bid .bar { background: var(--bid-soft); }
+.lvl .px { position: relative; } .lvl.ask .px { color: var(--ask); } .lvl.bid .px { color: var(--bid); }
+.lvl .qty { position: relative; text-align: right; color: var(--ink); }
+.lvl.flash { animation: flash .5s; }
+@keyframes flash { from { background: rgba(255,255,255,.18); } }
+.midrow { display: flex; justify-content: space-between; padding: 7px 10px; font: 500 .8rem/1 var(--font-mono); color: var(--muted); border-block: 1px dashed var(--line); margin-block: 3px; }
+.midrow b { color: var(--ink); font-weight: 500; }
+.tape { font: 400 .76rem/1.6 var(--font-mono); color: var(--muted); height: 5.2em; overflow: hidden; border-top: 1px solid var(--line); padding-top: 6px; }
+.tape .b { color: var(--bid); } .tape .s { color: var(--ask); }
+
+/* graph demo */
+#graph { width: 100%; height: 340px; display: block; background: radial-gradient(circle at 50% 40%, rgba(124,156,255,.06), transparent 70%); border-radius: 12px; touch-action: none; cursor: grab; }
+#graph.dragging { cursor: grabbing; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font: 400 .74rem/1 var(--font-mono); color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* linkedin demo */
+.li { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px; align-items: start; }
+.jobs-list { display: grid; gap: 6px; }
+.job-item { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; transition: border-color .2s, background-color .2s; }
+.job-item b { font: 600 .86rem/1.3 var(--font-body); color: var(--ink); }
+.job-item span { font-size: .78rem; color: var(--muted); }
+.job-item.on { border-color: var(--accent); background: var(--surface-2); }
+.card { background: #ffffff; color: #191919; border-radius: 12px; overflow: hidden; font: 13px/1.4 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: opacity .2s; }
+.card.swap { opacity: .35; }
+.card header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #e8e8e8; }
+.card .logo { background: #0a66c2; color: #fff; font-weight: 700; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+.card .co { font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card section { padding: 9px 12px; border-bottom: 1px solid #ececec; }
+.card section:last-child { border-bottom: 0; }
+.card h4 { margin: 0 0 4px; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: #666; font-weight: 600; }
+.card .big { font-size: 19px; font-weight: 700; }
+.card .muted { color: #666; font-size: 11.5px; }
+.card .meter { display: inline-flex; gap: 3px; margin-right: 6px; vertical-align: 1px; }
+.card .meter i { width: 8px; height: 8px; border-radius: 50%; background: #d0d7de; }
+.card .meter i.on { background: #0a66c2; }
+
+/* ---------- experience timeline ---------- */
+.timeline { position: relative; margin-top: 48px; display: grid; gap: 26px; }
+.rail { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--line); border-radius: 2px; }
+.rail .fill { position: absolute; left: 0; top: 0; width: 100%; height: 0; background: linear-gradient(var(--accent-2), var(--accent)); border-radius: 2px; }
+.item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; }
+.item .node { position: absolute; left: 50%; top: 28px; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--bg); border: 2px solid var(--line); transition: border-color .3s, box-shadow .3s; }
+.item.lit .node { border-color: var(--accent); box-shadow: 0 0 0 6px rgba(124,156,255,.15); }
+.item .when { align-self: start; padding-top: 16px; font: 500 .85rem/1.4 var(--font-mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.item:nth-child(odd of .item) .when { order: 2; text-align: left; }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; transition: border-color .3s, transform .3s, opacity .3s; }
+.job:hover { border-color: var(--accent); transform: translateY(-2px); }
+.job h3 { font-size: var(--step-1); margin: 0 0 4px; }
+.job .org { color: var(--accent); font-size: .92rem; margin: 0 0 10px; }
+.job ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; color: #c7cfdf; font-size: .95rem; }
+
+/* ---------- skills ---------- */
+.skills-wrap { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 56px; margin-top: 40px; align-items: start; }
+.skill-groups { display: grid; gap: 18px; }
+.sg h4 { margin: 0 0 8px; font: 500 .74rem/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sg .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font: 500 .86rem/1 var(--font-body); transition: all .2s; }
+.skill:hover { border-color: var(--accent); }
+.skill[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.skill .c { font: 400 .72rem/1 var(--font-mono); color: var(--muted); margin-left: 6px; }
+.skill[aria-pressed="true"] .c { color: var(--bg); }
+.used { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; position: sticky; top: calc(80px + env(safe-area-inset-top, 0px)); }
+.used h4 { margin: 0 0 12px; font: 600 1rem/1.3 var(--font-display); }
+.used ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.used li { font-size: .92rem; color: #c7cfdf; display: flex; gap: 10px; align-items: baseline; }
+.used li .k { font: 500 .7rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--accent); min-width: 72px; }
+.dim { opacity: .28; filter: saturate(.4); }
+.awards { display: grid; gap: 12px; margin-top: 30px; }
+.award { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; padding-block: 10px; border-top: 1px solid var(--line); }
+.award b { font-weight: 600; }
+.award span { color: var(--muted); font-size: .92rem; }
+
+/* ---------- contact ---------- */
+.contact { text-align: center; padding-block: 110px; }
+.contact h2 { font-size: var(--step-4); }
+.contact .lead { margin: 0 auto 28px; }
+.contact .cta { justify-content: center; }
+footer { border-top: 1px solid var(--line); padding-block: 26px 36px; color: var(--muted); font: 400 .8rem/1.5 var(--font-mono); text-align: center; }
+
+/* ---------- narrow ---------- */
+@media (max-width: 900px) {
+  .about, .panel, .skills-wrap, .li { grid-template-columns: minmax(0, 1fr); }
+  .demo { border-left: 0; border-top: 1px solid var(--line); }
+  .panel-text { padding: 24px; }
+  .rail { left: 7px; }
+  .item { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-left: 30px; }
+  .item .node { left: 8px; }
+  .item .when, .item:nth-child(odd of .item) .when { order: 0; text-align: left; padding-top: 0; }
+  .used { position: static; }
+  .hint { display: none; }
+  .award { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (max-width: 520px) {
+  .spec { grid-template-columns: minmax(0, 1fr); }
+  .spec div { border-left: 0; border-top: 1px solid var(--line); }
+  .spec div:first-child { border-top: 0; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .nav a { padding: 8px 10px; }
+  .nav .me { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .reveal.armed { opacity: 1; transform: none; }
+}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div id="spot" aria-hidden="true"></div>
+
+<nav class="nav" aria-label="Sections">
+  <a class="me" href="#top">HB</a>
+  <a href="#about">About</a>
+  <a href="#work">Projects</a>
+  <a href="#experience">Experience</a>
+  <a href="#skills">Skills</a>
+  <a href="#contact">Contact</a>
+</nav>
+
+<main>
+  <!-- ======================= HERO ======================= -->
+  <header class="hero" id="top">
+    <canvas id="tape" aria-label="Interactive order book: click to send a market order"></canvas>
+    <div class="hero-inner gutter">
+      <div class="wrap">
+        <p class="hello">Hello, I'm</p>
+        <h1>Harish Balamurugan<span class="dot">.</span></h1>
+        <p class="role" aria-live="polite">I build <b id="typed">low-latency systems</b><span class="caret" aria-hidden="true"></span></p>
+        <div class="cta">
+          <a class="btn primary" href="#work">See my work</a>
+          <a class="btn" href="https://github.com/Harish-613" target="_blank" rel="noopener">GitHub</a>
+          <a class="btn" href="https://linkedin.com/in/harish-balamurugan" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+    <div class="hint">Order book · <b>click</b> to buy above the mid, sell below · <span class="tab" id="hero-px">100.00</span></div>
+    <a class="down" href="#about" aria-label="Scroll to About"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l5 5 5-5"/></svg></a>
+  </header>
+
+  <!-- ======================= ABOUT ======================= -->
+  <section id="about" class="gutter">
+    <div class="wrap about">
+      <div class="reveal">
+        <p class="label">About me</p>
+        <h2>I like to build things, <span class="grad">then measure them.</span></h2>
+        <p>I'm a sophomore at <b>Northwestern</b> studying <b>Computer Science and Mathematics</b>. I came to code through competitive math, and I've been building and founding things since high school in Frisco, Texas.</p>
+        <p>These days I work on fast systems and developer tools: a C++ matching engine, a code-analysis engine for VS Code, and a data pipeline behind a Chrome extension. Last summer I was a software engineering intern at <b>Ratio</b>, a Polymarket copy-trading app.</p>
+        <p>I'm looking for <b>software engineering and quant internships for summer 2027</b>.</p>
+        <div class="mail">
+          <span class="k">Email</span>
+          <span class="addr" id="email">harishbalamurugan@u.northwestern.edu</span>
+          <button class="copy" id="copy" type="button">Copy</button>
+        </div>
+      </div>
+      <div class="facts reveal">
+        <div class="fact"><div class="n"><span data-count="3.73" data-dec="2">3.73</span></div><div class="t">GPA, CS &amp; Math, Northwestern '29</div></div>
+        <div class="fact"><div class="n">Top <span data-count="40">40</span></div><div class="t">in the US, IMC Prosperity algorithmic trading</div></div>
+        <div class="fact"><div class="n"><span data-count="10">10</span><small>M/s</small></div><div class="t">orders matched by Apex, single thread</div></div>
+        <div class="fact"><div class="n"><span data-count="711">711</span><small>K LOC</small></div><div class="t">largest repo Stratum has analyzed (Guava)</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PROJECTS ======================= -->
+  <section id="work" class="gutter">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="label">Projects</p>
+        <h2>Things I've built. <span class="grad">Try them.</span></h2>
+        <p class="lead">Each demo on the right runs the project's core idea live in your browser. Numbers on the left are measured, with benchmarks in each repo.</p>
+      </div>
+
+      <div class="projects">
+        <!-- Apex -->
+        <article class="panel reveal" data-tags="C++ Python CMake">
+          <div class="panel-text">
+            <span class="kind">Low-latency C++</span>
+            <h3>Apex</h3>
+            <p>A limit order book and matching engine with price-time priority for limit, market, stop and stop-limit orders. A gateway thread and a matching thread talk through a lock-free ring buffer, and nothing allocates memory while matching.</p>
+            <div class="chips"><span class="chip">C++20</span><span class="chip">lock-free SPSC ring</span><span class="chip">memory pools</span><span class="chip">CMake</span><span class="chip">Python</span></div>
+            <dl class="spec">
+              <div><dt>Throughput</dt><dd>10M <small>msgs/s</small></dd></div>
+              <div><dt>2-thread pipeline</dt><dd>6.5M <small>msgs/s</small></dd></div>
+              <div><dt>Median latency</dt><dd>550 <small>ns</small></dd></div>
+            </dl>
+            <p>Correctness is checked by replaying 400,000 random orders through Apex and a simple reference book and requiring identical trades.</p>
+            <a class="repo" href="https://github.com/Harish-613/Apex" target="_blank" rel="noopener">github.com/Harish-613/Apex →</a>
+          </div>
+          <div class="demo">
+            <div class="demo-head"><span>Order book</span><span class="live">live</span></div>
+            <div class="ladder" id="ladder" aria-live="off"></div>
+            <div class="controls">
+              <button class="ctl buy" data-act="mbuy" type="button">Market buy 150</button>
+              <button class="ctl sell" data-act="msell" type="button">Market sell 150</button>
+              <button class="ctl" data-act="bid" type="button">+ Bid 100</button>
+              <button class="ctl" data-act="ask" type="button">+ Ask 100</button>
+            </div>
+            <div class="tape" id="tape-log" aria-live="polite"></div>
+            <p class="note">Market orders sweep levels best price first; trades print at the resting order's price, as in Apex.</p>
+          </div>
+        </article>
+
+        <!-- Stratum -->
+        <article class="panel reveal" data-tags="TypeScript Python Tree-sitter">
+          <div class="panel-text">
+            <span class="kind">Developer tool</span>
+            <h3>Stratum</h3>
+            <p>A VS Code extension that turns a codebase into an interactive dependency graph. A Python engine parses the repo with Tree-sitter, finds import cycles with Tarjan's algorithm, flags files nothing can reach, spots copy-pasted functions by hashing syntax trees, and re-analyzes as you save.</p>
+            <div class="chips"><span class="chip">TypeScript</span><span class="chip">Python</span><span class="chip">Tree-sitter</span><span class="chip">Graphviz (WASM)</span><span class="chip">VS Code API</span></div>
+            <dl class="spec">
+              <div><dt>Languages</dt><dd>5 <small>Py JS TS Go Java</small></dd></div>
+              <div><dt>Guava full scan</dt><dd>12.5 <small>s · 711K LOC</small></dd></div>
+              <div><dt>Re-analysis on save</dt><dd>108 <small>ms</small></dd></div>
+            </dl>
+            <p>It also writes documentation with an LLM, splitting code only at function and class boundaries and caching results so re-runs only pay for changed code.</p>
+            <a class="repo" href="https://github.com/Harish-613/stratum" target="_blank" rel="noopener">github.com/Harish-613/stratum →</a>
+          </div>
+          <div class="demo">
+            <div class="demo-head"><span>Import graph · sample repo</span><span id="graph-status">drag the nodes</span></div>
+            <canvas id="graph" aria-label="Sample dependency graph; buttons below run cycle and dead-code detection"></canvas>
+            <div class="controls">
+              <button class="ctl" data-g="tarjan" type="button">Find cycles (Tarjan)</button>
+              <button class="ctl" data-g="dead" type="button">Find unreachable files</button>
+              <button class="ctl" data-g="reset" type="button">Reset</button>
+            </div>
+            <div class="legend"><span><i style="background:var(--accent)"></i>entry point</span><span><i style="background:var(--ask)"></i>in a cycle</span><span><i style="background:var(--muted)"></i>unreachable</span></div>
+          </div>
+        </article>
+
+        <!-- LinkedIn++ -->
+        <article class="panel reveal" data-tags="React TypeScript Node.js Express Python PostgreSQL Redis">
+          <div class="panel-text">
+            <span class="kind">Full-stack · data pipeline</span>
+            <h3>LinkedIn++</h3>
+            <p>A Chrome extension that adds pay ranges, interview difficulty and hiring competitiveness to LinkedIn job pages. A Python pipeline pulls SEC filings, company job boards, Crunchbase, BuiltWith and Levels.fyi data, matches it to one record per company, and scores it. An Express API serves it with Redis caching.</p>
+            <div class="chips"><span class="chip">React</span><span class="chip">TypeScript</span><span class="chip">Node/Express</span><span class="chip">Python</span><span class="chip">PostgreSQL</span><span class="chip">Redis</span><span class="chip">OpenAI API</span></div>
+            <dl class="spec">
+              <div><dt>Data sources</dt><dd>5</dd></div>
+              <div><dt>Company coverage</dt><dd>~10K <small>SEC-listed</small></dd></div>
+              <div><dt>Tests</dt><dd>128 <small>3 suites</small></dd></div>
+            </dl>
+            <p>Every number on the card shows how many data points sit behind it, and a pay range stays hidden until there are at least three.</p>
+            <a class="repo" href="https://github.com/Harish-613/Linkedin-" target="_blank" rel="noopener">github.com/Harish-613/Linkedin- →</a>
+          </div>
+          <div class="demo">
+            <div class="demo-head"><span>The overlay · pick a job</span><span>sample data</span></div>
+            <div class="li">
+              <div class="jobs-list" id="jobs"></div>
+              <div class="card" id="li-card" aria-live="polite"></div>
+            </div>
+            <p class="note">Fictional companies and sample numbers, rendered the way the extension draws its card.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= EXPERIENCE ======================= -->
+  <section id="experience" class="gutter">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="label">Experience</p>
+        <h2>Where I've <span class="grad">shipped.</span></h2>
+      </div>
+      <div class="timeline" id="timeline">
+        <div class="rail" aria-hidden="true"><div class="fill" id="rail-fill"></div></div>
+
+        <div class="item" data-tags="SQL">
+          <span class="node" aria-hidden="true"></span>
+          <div class="job">
+            <h3>Software Engineering Intern</h3>
+            <p class="org">Ratio · Polymarket copy-trading app · Remote</p>
+            <ul>
+              <li>Sped up trader P&amp;L queries by profiling slow scans and adding indexes.</li>
+              <li>Built a real-time feed that surfaces newly executed on-chain positions to followers.</li>
+              <li>Built a pre-execution rules layer (position caps, bankroll limits, slippage checks) that blocks or resizes risky copied trades.</li>
+            </ul>
+          </div>
+          <div class="when">May – Jul 2026</div>
+        </div>
+
+        <div class="item" data-tags="C++">
+          <span class="node" aria-hidden="true"></span>
+          <div class="job">
+            <h3>Software Engineer, Poker AI</h3>
+            <p class="org">IEEE at Northwestern · Technical Program</p>
+            <ul>
+              <li>Implementing Monte Carlo counterfactual regret minimization on a six-person team to solve imperfect-information poker.</li>
+              <li>Wrote a C++ lookup-table hand evaluator fast enough to drive large-scale self-play training.</li>
+            </ul>
+          </div>
+          <div class="when">Jan 2026 – now</div>
+        </div>
+
+        <div class="item" data-tags="Python Flask Flutter PostgreSQL AWS">
+          <span class="node" aria-hidden="true"></span>
+          <div class="job">
+            <h3>Co-Founder &amp; Software Engineer</h3>
+            <p class="org">Edu4Need · Nonprofit</p>
+            <ul>
+              <li>Built the backend as a versioned Flask REST API with JWT auth and PostgreSQL, deployed on AWS behind Nginx.</li>
+              <li>Shipped iOS and Android from one Flutter codebase.</li>
+            </ul>
+          </div>
+          <div class="when">Jun – Sep 2025</div>
+        </div>
+
+        <div class="item" data-tags="">
+          <span class="node" aria-hidden="true"></span>
+          <div class="job">
+            <h3>Clubs &amp; research</h3>
+            <p class="org">SVPRNOVA · FORGE · DISC</p>
+            <ul>
+              <li>Core Research Team at SVPRNOVA: modeled Spectrum, a campus team-switching game, with utility functions and a Markov switching matrix.</li>
+              <li>Member of FORGE, Northwestern's applied data and AI hub, and DISC (Develop &amp; Innovate for Social Change).</li>
+            </ul>
+          </div>
+          <div class="when">Since 2025</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SKILLS & AWARDS ======================= -->
+  <section id="skills" class="gutter">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="label">Skills &amp; awards</p>
+        <h2>Click a skill to see <span class="grad">where I've used it.</span></h2>
+      </div>
+      <div class="skills-wrap">
+        <div>
+          <div class="skill-groups" id="skill-groups"></div>
+          <div class="awards reveal">
+            <div class="award"><b>IMC Prosperity</b><span>Top 40 in the US, algorithmic phase</span></div>
+            <div class="award"><b>Blue Ocean</b><span>Top 30 pitch finalist out of 5,200+ participants</span></div>
+            <div class="award"><b>Genius Olympiad</b><span>Top 25 international finalist, coding</span></div>
+            <div class="award"><b>BPA</b><span>Top 6 internationally, website design</span></div>
+            <div class="award"><b>Mu Alpha Theta</b><span>State representative, competitive math</span></div>
+            <div class="award"><b>Certificate</b><span>C++ Programming for Financial Engineering (QuantNet / Baruch MFE)</span></div>
+          </div>
+        </div>
+        <aside class="used" id="used" aria-live="polite">
+          <h4>Pick a skill</h4>
+          <ul><li>Projects and jobs that use it light up on the page, and they're listed here.</li></ul>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= CONTACT ======================= -->
+  <section id="contact" class="gutter contact">
+    <div class="wrap reveal">
+      <p class="label" style="justify-content:center">Contact</p>
+      <h2>Let's <span class="grad">talk.</span></h2>
+      <p class="lead">I'm looking for software engineering and quant internships for summer 2027. Email is the fastest way to reach me.</p>
+      <div class="mail" style="margin-bottom:22px">
+        <span class="addr">harishbalamurugan@u.northwestern.edu</span>
+        <button class="copy" id="copy2" type="button">Copy</button>
+      </div>
+      <div class="cta">
+        <a class="btn" href="https://github.com/Harish-613" target="_blank" rel="noopener">github.com/Harish-613</a>
+        <a class="btn" href="https://linkedin.com/in/harish-balamurugan" target="_blank" rel="noopener">linkedin.com/in/harish-balamurugan</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="gutter">Harish Balamurugan · Evanston, IL · Northwestern CS &amp; Math '29</footer>
+
+<script>
+(() => {
+'use strict';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+/* ---------- cursor light ---------- */
+if (!reduce) addEventListener('pointermove', (e) => {
+  document.documentElement.style.setProperty('--mx', e.clientX + 'px');
+  document.documentElement.style.setProperty('--my', e.clientY + 'px');
+}, { passive: true });
+
+/* ---------- copy email ---------- */
+for (const id of ['copy', 'copy2']) {
+  $('#' + id).addEventListener('click', async (e) => {
+    const btn = e.currentTarget, addr = btn.previousElementSibling;
+    try { await navigator.clipboard.writeText(addr.textContent.trim()); btn.textContent = 'Copied'; }
+    catch { const r = document.createRange(); r.selectNodeContents(addr); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Selected'; }
+    setTimeout(() => (btn.textContent = 'Copy'), 1600);
+  });
+}
+
+/* ---------- typed role ---------- */
+const roles = ['low-latency systems', 'developer tools', 'data pipelines', 'matching engines', 'things, then measure them'];
+const typed = $('#typed');
+if (!reduce) {
+  let ri = 0, ci = roles[0].length, del = true;
+  const step = () => {
+    const word = roles[ri];
+    if (del) { ci--; if (ci <= 0) { del = false; ri = (ri + 1) % roles.length; } }
+    else { ci++; if (ci >= roles[ri].length) { del = true; typed.textContent = roles[ri]; return setTimeout(step, 1900); } }
+    typed.textContent = roles[ri].slice(0, Math.max(ci, 0)) || ' ';
+    setTimeout(step, del ? 35 : 65);
+  };
+  setTimeout(step, 2200);
+}
+
+/* ---------- hero: full-screen order book you can trade against ---------- */
+const tape = $('#tape'), tctx = tape.getContext('2d');
+const hero = { mid: 100.0, levels: 34, bids: [], asks: [], flashes: [], trail: [] };
+for (let i = 0; i < hero.levels; i++) { hero.bids.push(60 + rnd() * 240 * (0.4 + i / hero.levels)); hero.asks.push(60 + rnd() * 240 * (0.4 + i / hero.levels)); }
+for (let i = 0; i < 120; i++) hero.trail.push(100 + Math.sin(i / 9) * 0.12 + (rnd() - .5) * 0.05);
+function drawHero() {
+  const dpr = devicePixelRatio || 1, w = tape.clientWidth, h = tape.clientHeight;
+  if (tape.width !== Math.round(w * dpr) || tape.height !== Math.round(h * dpr)) { tape.width = Math.round(w * dpr); tape.height = Math.round(h * dpr); }
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0); tctx.clearRect(0, 0, w, h);
+  const rowH = h / (hero.levels * 2 + 2), midY = h / 2, maxQ = 420, x0 = w * 0.42, barW = w - x0 - 24;
+  tctx.font = '11px ' + css('--font-mono'); tctx.textBaseline = 'middle';
+  // price trail (last trades) across the left
+  tctx.beginPath();
+  hero.trail.forEach((p, i) => { const x = (i / (hero.trail.length - 1)) * x0, y = midY - (p - hero.mid) / 0.05 * rowH; i ? tctx.lineTo(x, y) : tctx.moveTo(x, y); });
+  tctx.strokeStyle = 'rgba(124,156,255,.35)'; tctx.lineWidth = 1.5; tctx.stroke();
+  for (let i = 0; i < hero.levels; i++) {
+    const ya = midY - (i + 1) * rowH, yb = midY + (i + 1) * rowH;
+    const wa = Math.min(1, hero.asks[i] / maxQ) * barW, wb = Math.min(1, hero.bids[i] / maxQ) * barW;
+    tctx.fillStyle = css('--ask-soft'); tctx.fillRect(x0, ya - rowH * .42, wa, rowH * .84);
+    tctx.fillStyle = css('--bid-soft'); tctx.fillRect(x0, yb - rowH * .42, wb, rowH * .84);
+    if (rowH > 9 && i % 4 === 0) {
+      tctx.fillStyle = 'rgba(255,127,119,.45)'; tctx.fillText((hero.mid + (i + .5) * 0.05).toFixed(2), x0 + 6, ya);
+      tctx.fillStyle = 'rgba(58,214,172,.45)'; tctx.fillText((hero.mid - (i + .5) * 0.05).toFixed(2), x0 + 6, yb);
+    }
+  }
+  tctx.strokeStyle = 'rgba(232,237,247,.18)'; tctx.setLineDash([4, 6]); tctx.beginPath(); tctx.moveTo(0, midY); tctx.lineTo(w, midY); tctx.stroke(); tctx.setLineDash([]);
+  const now = performance.now();
+  hero.flashes = hero.flashes.filter((f) => now - f.t < 900);
+  for (const f of hero.flashes) {
+    const a = 1 - (now - f.t) / 900;
+    tctx.fillStyle = f.buy ? `rgba(58,214,172,${a * .5})` : `rgba(255,127,119,${a * .5})`;
+    tctx.beginPath(); tctx.arc(f.x, f.y, 6 + (1 - a) * 46, 0, Math.PI * 2); tctx.fill();
+  }
+  $('#hero-px').textContent = hero.mid.toFixed(2);
+}
+function heroTrade(buy, qty, x, y) {
+  const side = buy ? hero.asks : hero.bids;
+  let left = qty, moved = 0;
+  while (left > 0) { const take = Math.min(left, side[0]); side[0] -= take; left -= take; if (side[0] <= 1) { side.shift(); side.push(60 + rnd() * 240); moved++; } }
+  if (moved) { hero.mid = +(hero.mid + (buy ? 1 : -1) * 0.05 * moved).toFixed(2); const other = buy ? hero.bids : hero.asks; for (let k = 0; k < moved; k++) { other.unshift(40 + rnd() * 80); other.pop(); } }
+  hero.trail.push(hero.mid); hero.trail.shift();
+  hero.flashes.push({ x, y, buy, t: performance.now() });
+}
+tape.addEventListener('click', (e) => {
+  const r = tape.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  heroTrade(y < r.height / 2, 260 + rnd() * 520, x, y);
+  drawHero();
+});
+let heroVisible = true;
+new IntersectionObserver(([e]) => (heroVisible = e.isIntersecting)).observe(tape);
+function heroLoop() {
+  if (heroVisible) {
+    for (let k = 0; k < 4; k++) { const b = rnd() < .5 ? hero.bids : hero.asks, i = Math.floor(rnd() * hero.levels); b[i] = Math.max(8, b[i] + (rnd() - .47) * 50); }
+    if (rnd() < .05) { const buy = rnd() < .5, w = tape.clientWidth, h = tape.clientHeight; heroTrade(buy, 200 + rnd() * 300, w * (0.45 + rnd() * 0.4), h / 2 + (buy ? -1 : 1) * (20 + rnd() * h * .3)); }
+    drawHero();
+  }
+  setTimeout(() => requestAnimationFrame(heroLoop), 120);
+}
+drawHero(); new ResizeObserver(drawHero).observe(tape);
+if (!reduce) heroLoop();
+// scroll: the book zooms and dims as you leave the intro
+if (!reduce) addEventListener('scroll', () => {
+  const p = Math.min(1, scrollY / innerHeight);
+  tape.style.transform = `scale(${1 + p * 0.18})`;
+  tape.style.opacity = String(1 - p * 0.7);
+  $('.hero-inner').style.transform = `translateY(${-p * 60}px)`;
+}, { passive: true });
+
+/* ---------- reveal on scroll ---------- */
+const revealIO = new IntersectionObserver((entries) => {
+  for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); e.target.classList.remove('armed'); revealIO.unobserve(e.target); }
+}, { rootMargin: '0px 0px -8% 0px' });
+if (!reduce) for (const el of $$('.reveal')) {
+  if (el.getBoundingClientRect().top > innerHeight) { el.classList.add('armed'); revealIO.observe(el); }
+}
+
+/* ---------- count-up facts ---------- */
+const countIO = new IntersectionObserver((entries) => {
+  for (const e of entries) if (e.isIntersecting) {
+    const el = e.target, end = parseFloat(el.dataset.count), dec = +(el.dataset.dec || 0), t0 = performance.now();
+    const f = (t) => { const k = Math.min(1, (t - t0) / 1100), v = end * (1 - Math.pow(1 - k, 3)); el.textContent = v.toFixed(dec); if (k < 1) requestAnimationFrame(f); };
+    requestAnimationFrame(f); countIO.unobserve(el);
+  }
+}, { threshold: .6 });
+if (!reduce) $$('[data-count]').forEach((el) => countIO.observe(el));
+
+/* ---------- active nav ---------- */
+const navLinks = $$('.nav a[href^="#"]');
+const navIO = new IntersectionObserver((entries) => {
+  for (const e of entries) if (e.isIntersecting) navLinks.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id && e.target.id !== 'top'));
+}, { rootMargin: '-45% 0px -50% 0px' });
+['top', 'about', 'work', 'experience', 'skills', 'contact'].forEach((id) => navIO.observe($('#' + id)));
+
+/* ---------- Apex demo: a real (small) price-time matching book ---------- */
+const TICK = 0.05;
+const book = { bids: new Map(), asks: new Map(), last: 100.0, trades: [] };
+const key = (p) => p.toFixed(2);
+for (let i = 1; i <= 8; i++) { book.asks.set(key(100 + i * TICK), Math.round(60 + rnd() * 140)); book.bids.set(key(100 - (i - 1) * TICK - TICK), Math.round(60 + rnd() * 140)); }
+const bestAsk = () => Math.min(...[...book.asks.keys()].map(Number));
+const bestBid = () => Math.max(...[...book.bids.keys()].map(Number));
+let flashed = new Set();
+function market(buy, qty) {
+  const side = buy ? book.asks : book.bids;
+  let left = qty;
+  while (left > 0 && side.size) {
+    const px = buy ? bestAsk() : bestBid(), k = key(px), avail = side.get(k), fill = Math.min(left, avail);
+    left -= fill; book.last = px; flashed.add((buy ? 'a' : 'b') + k);
+    book.trades.unshift({ buy, px, qty: fill });
+    avail - fill > 0 ? side.set(k, avail - fill) : side.delete(k);
+  }
+  book.trades = book.trades.slice(0, 4);
+}
+function addLimit(buy, qty) {
+  const side = buy ? book.bids : book.asks, px = buy ? (book.bids.size ? bestBid() : bestAsk() - TICK) : (book.asks.size ? bestAsk() : bestBid() + TICK);
+  const k = key(px); side.set(k, (side.get(k) || 0) + qty); flashed.add((buy ? 'b' : 'a') + k);
+}
+function refill() { // market makers quietly re-quote around the last trade
+  for (const [side, dir] of [[book.asks, 1], [book.bids, -1]]) {
+    const best = dir > 0 ? (side.size ? bestAsk() : book.last + TICK) : (side.size ? bestBid() : book.last - TICK);
+    while (side.size < 8) { const far = dir > 0 ? Math.max(...[...side.keys()].map(Number), best - TICK) : Math.min(...[...side.keys()].map(Number), best + TICK); side.set(key(far + dir * TICK), Math.round(40 + rnd() * 120)); }
+    if (rnd() < .5) { const ks = [...side.keys()]; const k = ks[Math.floor(rnd() * ks.length)]; side.set(k, Math.max(10, side.get(k) + Math.round((rnd() - .45) * 40))); }
+  }
+}
+function renderBook() {
+  const asks = [...book.asks.entries()].map(([k, q]) => [+k, q]).sort((a, b) => a[0] - b[0]).slice(0, 7).reverse();
+  const bids = [...book.bids.entries()].map(([k, q]) => [+k, q]).sort((a, b) => b[0] - a[0]).slice(0, 7);
+  const maxQ = Math.max(...asks.map((r) => r[1]), ...bids.map((r) => r[1]), 1);
+  const row = (side, [px, q]) => `<div class="lvl ${side}${flashed.has((side === 'ask' ? 'a' : 'b') + key(px)) ? ' flash' : ''}"><span class="bar" style="width:${(q / maxQ) * 100}%"></span><span class="px">${px.toFixed(2)}</span><span class="qty">${q}</span></div>`;
+  const spread = asks.length && bids.length ? Math.round((asks[asks.length - 1][0] - bids[0][0]) / TICK) : '-';
+  $('#ladder').innerHTML = asks.map((r) => row('ask', r)).join('') + `<div class="midrow"><span>last <b>${book.last.toFixed(2)}</b></span><span>spread <b>${spread}</b> tick${spread === 1 ? '' : 's'}</span></div>` + bids.map((r) => row('bid', r)).join('');
+  $('#tape-log').innerHTML = book.trades.length ? book.trades.map((t) => `<div class="${t.buy ? 'b' : 's'}">${t.buy ? 'BUY ' : 'SELL'} ${String(t.qty).padStart(4)} @ ${t.px.toFixed(2)}</div>`).join('') : 'No trades yet. Send a market order.';
+  flashed = new Set();
+}
+$$('.ctl[data-act]').forEach((b) => b.addEventListener('click', () => {
+  const a = b.dataset.act;
+  if (a === 'mbuy') market(true, 150); else if (a === 'msell') market(false, 150); else addLimit(a === 'bid', 100);
+  renderBook();
+}));
+renderBook();
+if (!reduce) setInterval(() => { refill(); renderBook(); }, 1400);
+
+/* ---------- Stratum demo: drag-able import graph, real Tarjan + BFS ---------- */
+const G = {
+  nodes: ['app.py', 'cli.py', 'test_api.py', 'routes.py', 'auth.py', 'models.py', 'db.py', 'cache.py', 'config.py', 'utils.py', 'legacy.py', 'old_export.py'],
+  entry: new Set(['app.py', 'cli.py', 'test_api.py']),
+  edges: [['app.py', 'routes.py'], ['app.py', 'config.py'], ['cli.py', 'models.py'], ['cli.py', 'config.py'], ['test_api.py', 'routes.py'],
+          ['routes.py', 'auth.py'], ['auth.py', 'routes.py'], ['routes.py', 'models.py'], ['models.py', 'db.py'], ['db.py', 'cache.py'],
+          ['cache.py', 'models.py'], ['db.py', 'config.py'], ['auth.py', 'utils.py'], ['legacy.py', 'utils.py'], ['old_export.py', 'legacy.py']],
+};
+const gc = $('#graph'), gx = gc.getContext('2d');
+const pos = {}; const state = { cycle: new Set(), dead: new Set(), visiting: null, visited: new Set() };
+function layout() {
+  const w = gc.clientWidth, h = gc.clientHeight, cx = w / 2, cy = h / 2;
+  G.nodes.forEach((n, i) => { const a = (i / G.nodes.length) * Math.PI * 2; pos[n] = { x: cx + Math.cos(a) * w * .32, y: cy + Math.sin(a) * h * .34, vx: 0, vy: 0 }; });
+  for (let it = 0; it < 260; it++) { // small force-directed settle
+    for (const a of G.nodes) for (const b of G.nodes) if (a !== b) {
+      const dx = pos[a].x - pos[b].x, dy = pos[a].y - pos[b].y, d2 = dx * dx + dy * dy + 0.01, f = 9000 / d2;
+      pos[a].vx += dx * f / Math.sqrt(d2); pos[a].vy += dy * f / Math.sqrt(d2);
+    }
+    for (const [a, b] of G.edges) { const dx = pos[b].x - pos[a].x, dy = pos[b].y - pos[a].y, d = Math.hypot(dx, dy) || 1, f = (d - 120) * 0.02; pos[a].vx += dx / d * f * d * .05; pos[a].vy += dy / d * f * d * .05; pos[b].vx -= dx / d * f * d * .05; pos[b].vy -= dy / d * f * d * .05; }
+    for (const n of G.nodes) { const p = pos[n]; p.vx += (cx - p.x) * 0.002; p.vy += (cy - p.y) * 0.003; p.x += p.vx * .08; p.y += p.vy * .08; p.vx *= .6; p.vy *= .6; p.x = Math.max(56, Math.min(w - 56, p.x)); p.y = Math.max(22, Math.min(h - 22, p.y)); }
+  }
+}
+function drawGraph() {
+  const dpr = devicePixelRatio || 1, w = gc.clientWidth, h = gc.clientHeight;
+  if (gc.width !== Math.round(w * dpr)) { gc.width = Math.round(w * dpr); gc.height = Math.round(h * dpr); }
+  gx.setTransform(dpr, 0, 0, dpr, 0, 0); gx.clearRect(0, 0, w, h);
+  gx.font = '500 11px ' + css('--font-mono'); gx.textAlign = 'center'; gx.textBaseline = 'middle';
+  const boxW = (n) => gx.measureText(n).width + 18;
+  for (const [a, b] of G.edges) {
+    const pa = pos[a], pb = pos[b], hot = state.cycle.has(a) && state.cycle.has(b);
+    const dx = pb.x - pa.x, dy = pb.y - pa.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const tx = pb.x - ux * (Math.min(boxW(b) / 2 / Math.abs(ux || 1e-6), 13 / Math.abs(uy || 1e-6)) + 3), ty = pb.y - uy * (Math.min(boxW(b) / 2 / Math.abs(ux || 1e-6), 13 / Math.abs(uy || 1e-6)) + 3);
+    gx.strokeStyle = hot ? css('--ask') : (state.dead.has(a) ? 'rgba(142,154,178,.35)' : 'rgba(142,154,178,.55)'); gx.lineWidth = hot ? 2 : 1.2;
+    gx.beginPath(); gx.moveTo(pa.x, pa.y); gx.lineTo(tx, ty); gx.stroke();
+    gx.fillStyle = gx.strokeStyle; gx.beginPath(); gx.moveTo(tx, ty); gx.lineTo(tx - ux * 8 - uy * 4, ty - uy * 8 + ux * 4); gx.lineTo(tx - ux * 8 + uy * 4, ty - uy * 8 - ux * 4); gx.closePath(); gx.fill();
+  }
+  for (const n of G.nodes) {
+    const p = pos[n], bw = boxW(n), inCyc = state.cycle.has(n), dead = state.dead.has(n), vis = state.visiting === n;
+    gx.fillStyle = inCyc ? 'rgba(255,127,119,.18)' : dead ? 'rgba(142,154,178,.08)' : vis ? 'rgba(124,156,255,.3)' : state.visited.has(n) ? 'rgba(124,156,255,.12)' : css('--surface');
+    gx.strokeStyle = inCyc ? css('--ask') : dead ? 'rgba(142,154,178,.45)' : G.entry.has(n) ? css('--accent') : css('--line');
+    gx.lineWidth = vis ? 2.4 : 1.4; if (dead) gx.setLineDash([3, 3]);
+    gx.beginPath(); gx.roundRect(p.x - bw / 2, p.y - 13, bw, 26, 7); gx.fill(); gx.stroke(); gx.setLineDash([]);
+    gx.fillStyle = dead ? css('--muted') : css('--ink'); gx.fillText(n, p.x, p.y + .5);
+  }
+}
+function tarjanSteps() { // iterative Tarjan that records each visit, so it can be animated
+  const adj = {}; G.nodes.forEach((n) => (adj[n] = [])); G.edges.forEach(([a, b]) => adj[a].push(b));
+  const idx = {}, low = {}, on = new Set(), stack = [], sccs = [], order = []; let i = 0;
+  for (const s of G.nodes) {
+    if (s in idx) continue;
+    const work = [[s, 0]]; idx[s] = low[s] = i++; stack.push(s); on.add(s); order.push(s);
+    while (work.length) {
+      const top = work[work.length - 1], [v, ci] = top;
+      if (ci < adj[v].length) {
+        top[1]++; const w = adj[v][ci];
+        if (!(w in idx)) { idx[w] = low[w] = i++; stack.push(w); on.add(w); order.push(w); work.push([w, 0]); }
+        else if (on.has(w)) low[v] = Math.min(low[v], idx[w]);
+      } else {
+        work.pop(); if (work.length) { const u = work[work.length - 1][0]; low[u] = Math.min(low[u], low[v]); }
+        if (low[v] === idx[v]) { const comp = []; let w; do { w = stack.pop(); on.delete(w); comp.push(w); } while (w !== v); if (comp.length > 1) sccs.push(comp); }
+      }
+    }
+  }
+  return { order, sccs };
+}
+const status = $('#graph-status');
+let anim = null;
+function resetGraph() { clearInterval(anim); state.cycle = new Set(); state.dead = new Set(); state.visited = new Set(); state.visiting = null; status.textContent = 'drag the nodes'; drawGraph(); }
+$$('.ctl[data-g]').forEach((b) => b.addEventListener('click', () => {
+  const g = b.dataset.g;
+  if (g === 'reset') return resetGraph();
+  resetGraph();
+  if (g === 'tarjan') {
+    const { order, sccs } = tarjanSteps(); let k = 0;
+    const finish = () => { state.visiting = null; sccs.forEach((c) => c.forEach((n) => state.cycle.add(n))); status.textContent = `${sccs.length} cycles: ` + sccs.map((c) => c.length + ' files').join(', '); drawGraph(); };
+    if (reduce) return finish();
+    anim = setInterval(() => { if (k < order.length) { state.visiting = order[k]; state.visited.add(order[k]); status.textContent = 'DFS visit: ' + order[k]; k++; drawGraph(); } else { clearInterval(anim); finish(); } }, 220);
+  } else {
+    const adj = {}; G.nodes.forEach((n) => (adj[n] = [])); G.edges.forEach(([a, c]) => adj[a].push(c));
+    const seen = new Set(G.entry), q = [...G.entry]; while (q.length) for (const n of adj[q.shift()]) if (!seen.has(n)) { seen.add(n); q.push(n); }
+    G.nodes.filter((n) => !seen.has(n)).forEach((n) => state.dead.add(n));
+    status.textContent = `${state.dead.size} files no entry point reaches`; drawGraph();
+  }
+}));
+let dragN = null;
+const at = (e) => { const r = gc.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+gc.addEventListener('pointerdown', (e) => {
+  const m = at(e); gx.font = '500 11px ' + css('--font-mono');
+  dragN = G.nodes.find((n) => Math.abs(pos[n].x - m.x) < (gx.measureText(n).width + 18) / 2 && Math.abs(pos[n].y - m.y) < 14) || null;
+  if (dragN) { gc.setPointerCapture(e.pointerId); gc.classList.add('dragging'); }
+});
+gc.addEventListener('pointermove', (e) => { if (!dragN) return; const m = at(e); pos[dragN].x = Math.max(40, Math.min(gc.clientWidth - 40, m.x)); pos[dragN].y = Math.max(16, Math.min(gc.clientHeight - 16, m.y)); drawGraph(); });
+gc.addEventListener('pointerup', () => { dragN = null; gc.classList.remove('dragging'); });
+let lastW = 0;
+new ResizeObserver(() => { if (Math.abs(gc.clientWidth - lastW) > 30) { lastW = gc.clientWidth; layout(); } drawGraph(); }).observe(gc);
+
+/* ---------- LinkedIn++ demo ---------- */
+const JOBS = [
+  { title: 'Software Engineer, Backend', co: 'Northwind Robotics', loc: 'Pittsburgh, PA', pay: [168, 182, 205], n: 14, src: '11 posted ranges · 3 Levels.fyi reports', iv: [3.6, 'Hard', 'Asks for ~4 yrs on average; 78% of postings mention algorithms or system design'], comp: [71, 'Competitive'], roles: 86, fund: '$640M · Series D' },
+  { title: 'Software Engineer, New Grad', co: 'Halcyon Pay', loc: 'New York, NY', pay: [138, 150, 162], n: 9, src: '9 posted ranges', iv: [3.1, 'Hard', 'Coding assessment mentioned in most postings; entry-level experience asked for'], comp: [83, 'Very competitive'], roles: 41, fund: '$1.2B · Series E' },
+  { title: 'Machine Learning Engineer', co: 'Orbit Labs', loc: 'Remote', pay: null, n: 2, src: '', iv: [2.4, 'Medium', 'Few specific requirements beyond Python and PyTorch'], comp: null, roles: 12, fund: '$38M · Series A' },
+];
+const meter = (v, max = 5) => '<span class="meter">' + Array.from({ length: max }, (_, i) => `<i class="${i < Math.round(v) ? 'on' : ''}"></i>`).join('') + '</span>';
+function renderCard(j) {
+  $('#li-card').innerHTML = `
+    <header><span class="logo">in++</span><span class="co">${j.co}</span></header>
+    <section><h4>Pay range · base</h4>${j.pay ? `<div><span class="big">$${j.pay[0]}K – $${j.pay[2]}K</span> <span class="muted">median $${j.pay[1]}K</span></div><div class="muted">${j.src}</div>` : `<div class="muted">Not enough salary data for this role yet (${j.n} data points; needs 3).</div>`}</section>
+    <section><h4>Interview difficulty · estimate</h4><div>${meter(j.iv[0])}<b>${j.iv[1]}</b> <span class="muted">${j.iv[0].toFixed(1)} / 5</span></div><div class="muted">${j.iv[2]}</div></section>
+    <section><h4>Hiring competitiveness</h4>${j.comp ? `<div>${meter(Math.round(j.comp[0] / 20))}<b>${j.comp[1]}</b> <span class="muted">${j.comp[0]} / 100</span></div>` : '<div class="muted">Not enough public data to rank this company.</div>'}<div class="muted">${j.roles} open roles · ${j.fund}</div></section>`;
+}
+const jobsEl = $('#jobs');
+JOBS.forEach((j, i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'job-item' + (i === 0 ? ' on' : '');
+  b.innerHTML = `<b>${j.title}</b><span>${j.co} · ${j.loc}</span>`;
+  b.addEventListener('click', () => {
+    $$('.job-item').forEach((x) => x.classList.toggle('on', x === b));
+    const card = $('#li-card'); card.classList.add('swap');
+    setTimeout(() => { renderCard(j); card.classList.remove('swap'); }, reduce ? 0 : 140);
+  });
+  jobsEl.append(b);
+});
+renderCard(JOBS[0]);
+
+/* ---------- experience timeline progress ---------- */
+const tl = $('#timeline'), fill = $('#rail-fill'), items = $$('.item', tl);
+function railUpdate() {
+  const r = tl.getBoundingClientRect(), mark = innerHeight * .6;
+  const p = Math.max(0, Math.min(1, (mark - r.top) / r.height));
+  fill.style.height = (p * 100) + '%';
+  items.forEach((it) => it.classList.toggle('lit', it.getBoundingClientRect().top + 28 < mark));
+}
+addEventListener('scroll', railUpdate, { passive: true }); addEventListener('resize', railUpdate); railUpdate();
+
+/* ---------- skill filter ---------- */
+const SKILLS = {
+  Languages: ['Python', 'C++', 'TypeScript', 'SQL', 'C', 'Java'],
+  'Frameworks': ['React', 'Node.js', 'Express', 'Flask', 'Flutter', 'FastAPI'],
+  'Data & cloud': ['PostgreSQL', 'Redis', 'Supabase', 'AWS'],
+  Tools: ['Git', 'Linux', 'CMake', 'Tree-sitter'],
+};
+const targets = [
+  ...$$('.panel').map((el) => ({ el, kind: 'Project', name: el.querySelector('h3').textContent })),
+  ...$$('.item').map((el) => ({ el, kind: 'Job', name: el.querySelector('h3').textContent + ', ' + el.querySelector('.org').textContent.split(' · ')[0] })),
+];
+const tagsOf = (el) => (el.dataset.tags || '').split(' ');
+const usedEl = $('#used');
+let active = null;
+function applySkill(skill) {
+  active = active === skill ? null : skill;
+  $$('.skill').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.skill === active)));
+  targets.forEach((t) => { const hit = active && tagsOf(t.el).includes(active); t.el.classList.toggle('dim', !!active && !hit); });
+  $$('.panel .chip').forEach((c) => c.classList.toggle('hit', !!active && c.textContent.toLowerCase().startsWith(active.toLowerCase())));
+  if (!active) { usedEl.innerHTML = '<h4>Pick a skill</h4><ul><li>Projects and jobs that use it light up on the page, and they\'re listed here.</li></ul>'; return; }
+  const hits = targets.filter((t) => tagsOf(t.el).includes(active));
+  usedEl.innerHTML = `<h4>${active}: used in ${hits.length} place${hits.length === 1 ? '' : 's'}</h4><ul>` +
+    (hits.length ? hits.map((t) => `<li><span class="k">${t.kind}</span>${t.name}</li>`).join('') : '<li>Coursework and personal use.</li>') + '</ul>';
+}
+const sgEl = $('#skill-groups');
+for (const [group, list] of Object.entries(SKILLS)) {
+  const g = document.createElement('div'); g.className = 'sg reveal';
+  g.innerHTML = `<h4>${group}</h4><div class="row"></div>`;
+  for (const s of list) {
+    const n = targets.filter((t) => tagsOf(t.el).includes(s)).length;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'skill'; b.dataset.skill = s; b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = `${s}${n ? `<span class="c">${n}</span>` : ''}`;
+    b.addEventListener('click', () => applySkill(s));
+    g.querySelector('.row').append(b);
+  }
+  sgEl.append(g);
+}
+})();
+</script>
+
+</body>
+</html>
